@@ -41,8 +41,19 @@ public class ObjectStore
         obj.SequenceNumber = seqNumber;
         obj.UpdatedAt = DateTime.UtcNow;
 
+        // 智能外部化：人物卡等类型始终外化卡体
+        var shouldExternalize = ShouldExternalizeObject(obj);
+        GameObject dbObj = obj;
+
+        if (shouldExternalize)
+        {
+            await SaveObjectFileAsync(roomId, obj);
+            // 创建轻量副本用于数据库（移除大型Properties）
+            dbObj = CreateLightweightCopy(obj);
+        }
+
         // 序列化对象
-        var data = JsonSerializer.SerializeToUtf8Bytes(obj);
+        var data = JsonSerializer.SerializeToUtf8Bytes(dbObj);
 
         var cmd = conn.CreateCommand();
         cmd.CommandText = @"
@@ -69,6 +80,62 @@ public class ObjectStore
 
         await cmd.ExecuteNonQueryAsync();
         return seqNumber;
+    }
+
+    private async Task SaveObjectFileAsync(string roomId, GameObject obj)
+    {
+        var objDir = Path.Combine(_basePath, "rooms", roomId, "objects");
+        Directory.CreateDirectory(objDir);
+
+        var filePath = Path.Combine(objDir, $"{obj.Id}.obj");
+        var json = JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(filePath, json);
+    }
+
+    private bool ShouldExternalizeObject(GameObject obj)
+    {
+        // 检查是否有非同步属性（静态数据）
+        var hasStaticData = obj.Properties.Any(p => !p.Key.StartsWith("sync_"));
+
+        // 人物卡、地图等类型，如果有静态数据则外部化
+        var largeTypes = new[] { "Character", "CharacterSheet", "Map", "Scene", "Handout", "Journal" };
+        return largeTypes.Contains(obj.Type) && hasStaticData;
+    }
+
+    private GameObject CreateLightweightCopy(GameObject obj)
+    {
+        // 保留同步必需的属性，移除大型静态数据
+        var lightCopy = new GameObject
+        {
+            Id = obj.Id,
+            Type = obj.Type,
+            Name = obj.Name,
+            SequenceNumber = obj.SequenceNumber,
+            RoomId = obj.RoomId,
+            ChannelId = obj.ChannelId,
+            CreatedAt = obj.CreatedAt,
+            UpdatedAt = obj.UpdatedAt,
+            CreatorId = obj.CreatorId,
+            OwnerId = obj.OwnerId,
+            ParentId = obj.ParentId,
+            IsDeleted = obj.IsDeleted,
+            Version = obj.Version,
+            Properties = new Dictionary<string, object>()
+        };
+
+        // 只保留需要实时同步的属性（以"sync_"开头）
+        foreach (var prop in obj.Properties)
+        {
+            if (prop.Key.StartsWith("sync_"))
+            {
+                lightCopy.Properties[prop.Key] = prop.Value;
+            }
+        }
+
+        // 添加标记表示完整数据在外部文件
+        lightCopy.Properties["_externalized"] = true;
+
+        return lightCopy;
     }
 
     /// <summary>

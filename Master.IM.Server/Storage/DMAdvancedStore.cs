@@ -6,7 +6,7 @@ using System.Linq;
 
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
-using MasterIM.Server.Models;
+using MasterIM.Models;
 
 namespace MasterIM.Server.Storage;
 
@@ -63,7 +63,7 @@ public class DMAdvancedStore
         await File.WriteAllTextAsync(configPath, json);
     }
 
-    public async Task SaveAsync(string pairId, Message msg)
+    public async Task SaveAsync(string pairId, GroupMessage msg)
     {
         var dbPath = GetDbPath(pairId, msg.SendTime);
         EnsureDatabase(dbPath);
@@ -89,7 +89,7 @@ public class DMAdvancedStore
         await UpdatePageMetadataAsync(conn, msg.PageNumber);
     }
 
-    public async Task<List<Message>> GetPageAsync(string pairId, int lastPage, int lastSeq, int limit)
+    public async Task<List<GroupMessage>> GetPageAsync(string pairId, int lastPage, int lastSeq, int limit)
     {
         var dbPath = GetDbPath(pairId, DateTime.Now);
         if (!File.Exists(dbPath)) return new();
@@ -109,11 +109,11 @@ public class DMAdvancedStore
         cmd.Parameters.AddWithValue("@seq", lastSeq);
         cmd.Parameters.AddWithValue("@limit", limit);
 
-        var messages = new List<Message>();
+        var messages = new List<GroupMessage>();
         using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            messages.Add(new Message
+            messages.Add(new GroupMessage
             {
                 PageNumber = reader.GetInt32(0),
                 InPageSeq = reader.GetInt32(1),

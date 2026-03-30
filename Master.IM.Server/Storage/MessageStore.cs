@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 
 using Microsoft.Data.Sqlite;
-using MasterIM.Server.Models;
+using MasterIM.Models;
 
 namespace MasterIM.Server.Storage;
 
@@ -18,13 +18,28 @@ public class MessageStore
         _basePath = basePath;
     }
 
-    public async Task SaveAsync(string roomId, string channelId, Message msg)
+    public async Task SaveAsync(string roomId, string channelId, GroupMessage msg)
     {
         var dbPath = GetDbPath(roomId, msg.SendTime);
         EnsureDatabase(dbPath, channelId);
 
         using var conn = new SqliteConnection($"Data Source={dbPath}");
         await conn.OpenAsync();
+
+        // 自动分配页号和序号
+        if (msg.PageNumber == 0 && msg.InPageSeq == 0)
+        {
+            var getMaxCmd = conn.CreateCommand();
+            getMaxCmd.CommandText = $"SELECT COALESCE(MAX(page_number), 0), COALESCE(MAX(in_page_seq), -1) FROM channel_{channelId}";
+            using var reader = await getMaxCmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                var maxPage = reader.GetInt32(0);
+                var maxSeq = reader.GetInt32(1);
+                msg.PageNumber = maxPage;
+                msg.InPageSeq = maxSeq + 1;
+            }
+        }
 
         var cmd = conn.CreateCommand();
         cmd.CommandText = $@"
@@ -46,7 +61,7 @@ public class MessageStore
         await UpdatePageMetadataAsync(conn, channelId, msg.PageNumber);
     }
 
-    public async Task<List<Message>> GetPageAsync(string roomId, string channelId, int lastPage, int lastSeq, int limit)
+    public async Task<List<GroupMessage>> GetPageAsync(string roomId, string channelId, int lastPage, int lastSeq, int limit)
     {
         var dbPath = GetDbPath(roomId, DateTime.Now);
         if (!File.Exists(dbPath)) return new();
@@ -66,11 +81,11 @@ public class MessageStore
         cmd.Parameters.AddWithValue("@seq", lastSeq);
         cmd.Parameters.AddWithValue("@limit", limit);
 
-        var messages = new List<Message>();
+        var messages = new List<GroupMessage>();
         using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            messages.Add(new Message
+            messages.Add(new GroupMessage
             {
                 PageNumber = reader.GetInt32(0),
                 InPageSeq = reader.GetInt32(1),
@@ -262,7 +277,7 @@ public class MessageStore
     private string GetDbPath(string roomId, DateTime sendTime)
     {
         var month = sendTime.ToString("yyyy-MM");
-        var dir = Path.Combine(_basePath, "rooms", roomId, "data", "messages");
+        var dir = Path.Combine(_basePath, "rooms", roomId, "messages");
         Directory.CreateDirectory(dir);
         return Path.Combine(dir, $"{month}.db");
     }

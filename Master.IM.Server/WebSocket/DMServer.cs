@@ -7,7 +7,7 @@ using System.Threading;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using MasterIM.Server.Models;
+using MasterIM.Models;
 
 namespace MasterIM.Server.WebSocket;
 
@@ -22,18 +22,15 @@ public class DMServer
 
     public async Task HandleConnectionAsync(System.Net.WebSockets.WebSocket ws, string userId, string targetUserId)
     {
-        // 验证目标用户是否在线
-        if (!_connMgr.IsOnline(targetUserId))
-        {
-            await ws.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Target user offline", CancellationToken.None);
-            return;
-        }
-
         var conn = new DMConnection(ws, userId, targetUserId);
         _connMgr.Add(userId, conn);
 
-        // 通知对方上线
-        await NotifyOnline(targetUserId, userId);
+        // 如果对方在线，通知双方
+        if (_connMgr.IsOnline(targetUserId))
+        {
+            await NotifyOnline(targetUserId, userId);
+            await NotifyOnline(userId, targetUserId);
+        }
 
         await ReceiveLoop(conn);
 

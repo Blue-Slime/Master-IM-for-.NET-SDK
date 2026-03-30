@@ -6,8 +6,7 @@ using System.Threading;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using MasterIM.SDK.Models;
-using MasterIM.SDK.Protocol;
+using MasterIM.Models;
 
 namespace MasterIM.SDK;
 
@@ -19,7 +18,7 @@ public class DMAdvancedClient : IDisposable
     private string? _userId;
     private string? _targetUserId;
 
-    public event Action<Message>? OnMessageReceived;
+    public event Action<GroupMessage>? OnMessageReceived;
     public event Action? OnConnected;
     public event Action? OnDisconnected;
 
@@ -38,14 +37,14 @@ public class DMAdvancedClient : IDisposable
         _ = ReceiveLoop();
     }
 
-    public async Task SendMessageAsync(Message msg)
+    public async Task SendMessageAsync(GroupMessage msg)
     {
         await SendAsync(new Packet { T = "msg", P = msg });
     }
 
-    public async Task<List<Message>> QueryPageAsync(int lastPage, int lastSeq, int limit = 100)
+    public async Task<List<GroupMessage>> QueryPageAsync(int lastPage, int lastSeq, int limit = 100)
     {
-        var result = await RequestAsync<List<Message>>(new Packet
+        var result = await RequestAsync<List<GroupMessage>>(new Packet
         {
             T = "qry",
             P = new { LastPage = lastPage, LastSeq = lastSeq, Limit = limit }
@@ -122,7 +121,7 @@ public class DMAdvancedClient : IDisposable
 
         if (packet.T == "msg")
         {
-            var msg = JsonSerializer.Deserialize<Message>(packet.P?.ToString() ?? "");
+            var msg = JsonSerializer.Deserialize<GroupMessage>(packet.P?.ToString() ?? "");
             if (msg != null) OnMessageReceived?.Invoke(msg);
         }
     }

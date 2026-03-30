@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using MasterIM.Server.Storage;
 using MasterIM.Server.WebSocket;
+using MasterIM.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,7 @@ builder.Services.AddSingleton(new MessageStore("./data"));
 builder.Services.AddSingleton(new ObjectStore("./data"));
 builder.Services.AddSingleton(new DMAdvancedStore("./data"));
 builder.Services.AddSingleton(new DMCleanupService("./data"));
+builder.Services.AddSingleton(new FileService("./data"));
 builder.Services.AddSingleton<IMServer>();
 builder.Services.AddSingleton<DMServer>();
 builder.Services.AddSingleton<DMAdvancedServer>();
@@ -79,6 +81,49 @@ app.Map("/dm_advanced", async context =>
     var ws = await context.WebSockets.AcceptWebSocketAsync();
     var server = context.RequestServices.GetRequiredService<DMAdvancedServer>();
     await server.HandleConnectionAsync(ws, userId, targetUserId, enableStorage, retentionDays);
+});
+
+app.MapPost("/upload", async (HttpContext context) =>
+{
+    var userId = context.Request.Query["userId"].ToString();
+    var roomId = context.Request.Query["roomId"].ToString();
+
+    if (!context.Request.HasFormContentType || context.Request.Form.Files.Count == 0)
+    {
+        context.Response.StatusCode = 400;
+        return;
+    }
+
+    var file = context.Request.Form.Files[0];
+    var fileService = context.RequestServices.GetRequiredService<FileService>();
+    var fileTransfer = await fileService.SaveFileAsync(roomId, file.OpenReadStream(), file.FileName, userId);
+
+    await context.Response.WriteAsJsonAsync(new
+    {
+        FileId = fileTransfer.FileId,
+        FileName = fileTransfer.FileName,
+        FileSize = fileTransfer.FileSize,
+        FileType = fileTransfer.FileType,
+        Url = $"/download?fileId={fileTransfer.FileId}&roomId={roomId}&fileName={fileTransfer.FileName}"
+    });
+});
+
+app.MapGet("/download", async (HttpContext context) =>
+{
+    var fileId = context.Request.Query["fileId"].ToString();
+    var roomId = context.Request.Query["roomId"].ToString();
+    var fileName = context.Request.Query["fileName"].ToString();
+
+    var fileService = context.RequestServices.GetRequiredService<FileService>();
+    var filePath = fileService.GetFilePath(roomId, fileId, fileName);
+
+    if (!File.Exists(filePath))
+    {
+        context.Response.StatusCode = 404;
+        return;
+    }
+
+    await context.Response.SendFileAsync(filePath);
 });
 
 app.Run();

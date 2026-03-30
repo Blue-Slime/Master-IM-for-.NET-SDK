@@ -1,0 +1,12 @@
+{
+  "PairId": "user3_user4",
+  "EnableStorage": true,
+  "EnableRoaming": true,
+  "EnableEdit": true,
+  "RetentionDays": 30,
+  "CreatedAt": "2026-03-30T12:31:39.2828467Z",
+  "Participants": [
+    "user4",
+    "user3"
+  ]
+}

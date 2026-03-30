@@ -7,7 +7,7 @@ using System.Threading;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using MasterIM.Server.Models;
+using MasterIM.Models;
 using MasterIM.Server.Storage;
 
 namespace MasterIM.Server.WebSocket;
@@ -91,6 +91,21 @@ public class IMServer
             case "stm":
                 await HandleStream(conn, packet);
                 break;
+            case "grp_add_member":
+                await HandleAddMember(conn, packet);
+                break;
+            case "grp_remove_member":
+                await HandleRemoveMember(conn, packet);
+                break;
+            case "presence":
+                await HandlePresence(conn, packet);
+                break;
+            case "typing":
+                await HandleTyping(conn, packet);
+                break;
+            case "dice_roll":
+                await HandleDiceRoll(conn, packet);
+                break;
             case "ping":
                 await SendAsync(conn.WebSocket, new Packet { T = "pong" });
                 break;
@@ -115,9 +130,14 @@ public class IMServer
                 await HandleModify(conn, data);
                 return;
             }
+            if (type == "revoke")
+            {
+                await HandleRevoke(conn, data);
+                return;
+            }
         }
 
-        var msg = JsonSerializer.Deserialize<Message>(packet.P?.ToString() ?? "");
+        var msg = JsonSerializer.Deserialize<GroupMessage>(packet.P?.ToString() ?? "");
         if (msg == null) return;
 
         await _store.SaveAsync(conn.RoomId, conn.ChannelId, msg);
@@ -126,7 +146,7 @@ public class IMServer
 
     private async Task HandleInsertHistory(Connection conn, Dictionary<string, object> data)
     {
-        var msg = JsonSerializer.Deserialize<Message>(data["Message"]?.ToString() ?? "");
+        var msg = JsonSerializer.Deserialize<GroupMessage>(data["GroupMessage"]?.ToString() ?? "");
         if (msg == null) return;
 
         await _store.SaveAsync(conn.RoomId, conn.ChannelId, msg);
@@ -380,5 +400,122 @@ public class IMServer
         var json = JsonSerializer.Serialize(packet);
         var bytes = Encoding.UTF8.GetBytes(json);
         await ws.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+
+    private async Task HandleRevoke(Connection conn, Dictionary<string, object> data)
+    {
+        var page = Convert.ToInt32(data["Page"]);
+        var seq = Convert.ToInt32(data["Seq"]);
+
+        await BroadcastToChannel(conn.RoomId, conn.ChannelId, new Packet
+        {
+            T = "msg_revoked",
+            P = new { page, seq }
+        });
+    }
+
+    // 群组事件广播
+    private async Task HandleAddMember(Connection conn, Packet packet)
+    {
+        var data = JsonSerializer.Deserialize<Dictionary<string, string>>(packet.P?.ToString() ?? "");
+        if (data == null) return;
+
+        var userId = data["UserId"];
+        var role = data.ContainsKey("Role") ? data["Role"] : "member";
+
+        await BroadcastToChannel(conn.RoomId, conn.ChannelId, new Packet
+        {
+            T = "member_joined",
+            P = new { UserId = userId, Role = role }
+        });
+    }
+
+    private async Task HandleRemoveMember(Connection conn, Packet packet)
+    {
+        var data = JsonSerializer.Deserialize<Dictionary<string, string>>(packet.P?.ToString() ?? "");
+        if (data == null) return;
+
+        var userId = data["UserId"];
+
+        await BroadcastToChannel(conn.RoomId, conn.ChannelId, new Packet
+        {
+            T = "member_left",
+            P = new { UserId = userId }
+        });
+    }
+
+    private async Task HandlePresence(Connection conn, Packet packet)
+    {
+        var data = JsonSerializer.Deserialize<Dictionary<string, string>>(packet.P?.ToString() ?? "");
+        if (data == null) return;
+
+        var status = data["Status"]; // online, away, busy, offline
+
+        await BroadcastGroupTips(conn, new GroupTipsEvent
+        {
+            Type = $"user_{status}",
+            RoomId = conn.RoomId,
+            ChannelId = conn.ChannelId,
+            UserId = conn.UserId,
+            Data = new() { { "Status", status } }
+        });
+    }
+
+    private async Task HandleTyping(Connection conn, Packet packet)
+    {
+        var data = JsonSerializer.Deserialize<Dictionary<string, object>>(packet.P?.ToString() ?? "");
+        if (data == null) return;
+
+        var isTyping = data.ContainsKey("IsTyping") && Convert.ToBoolean(data["IsTyping"]);
+
+        await BroadcastToChannelExcept(conn.RoomId, conn.ChannelId, conn.UserId, new Packet
+        {
+            T = "group_tips",
+            P = new GroupTipsEvent
+            {
+                Type = isTyping ? "typing" : "stop_typing",
+                UserId = conn.UserId
+            }
+        });
+    }
+
+    private async Task HandleDiceRoll(Connection conn, Packet packet)
+    {
+        var data = JsonSerializer.Deserialize<Dictionary<string, object>>(packet.P?.ToString() ?? "");
+        if (data == null) return;
+
+        var isSecret = data.ContainsKey("IsSecret") && Convert.ToBoolean(data["IsSecret"]);
+        var formula = data["Formula"]?.ToString() ?? "";
+        var result = data["Result"]?.ToString() ?? "";
+
+        await BroadcastGroupTips(conn, new GroupTipsEvent
+        {
+            Type = isSecret ? "secret_dice_roll" : "dice_roll",
+            RoomId = conn.RoomId,
+            ChannelId = conn.ChannelId,
+            UserId = conn.UserId,
+            Data = new()
+            {
+                { "Formula", formula },
+                { "Result", result },
+                { "IsSecret", isSecret }
+            }
+        });
+    }
+
+
+    private async Task BroadcastGroupTips(Connection conn, GroupTipsEvent tips)
+    {
+        var packet = new Packet
+        {
+            T = "group_tips",
+            P = tips
+        };
+
+        var conns = _connMgr.GetChannelConnections(conn.RoomId, conn.ChannelId);
+        foreach (var c in conns)
+        {
+            await SendAsync(c.WebSocket, packet);
+        }
     }
 }

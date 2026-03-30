@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>MasterIM.IntegrationTest</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Master.IM.SDK\MasterIM.SDK.csproj" />
+    <ProjectReference Include="..\Master.IM.Server\MasterIM.Server.csproj" />
+  </ItemGroup>
+
+</Project>

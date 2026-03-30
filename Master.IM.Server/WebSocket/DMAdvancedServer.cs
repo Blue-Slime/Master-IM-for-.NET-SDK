@@ -7,7 +7,7 @@ using System.Threading;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using MasterIM.Server.Models;
+using MasterIM.Models;
 using MasterIM.Server.Storage;
 
 namespace MasterIM.Server.WebSocket;
@@ -89,7 +89,7 @@ public class DMAdvancedServer
             return;
         }
 
-        var msg = JsonSerializer.Deserialize<Message>(packet.P?.ToString() ?? "");
+        var msg = JsonSerializer.Deserialize<GroupMessage>(packet.P?.ToString() ?? "");
         if (msg == null) return;
 
         if (config.EnableStorage)
@@ -104,7 +104,7 @@ public class DMAdvancedServer
     {
         if (!config.EnableRoaming)
         {
-            await SendAsync(conn.WebSocket, new Packet { T = "qry", P = new List<Message>(), Id = packet.Id });
+            await SendAsync(conn.WebSocket, new Packet { T = "qry", P = new List<GroupMessage>(), Id = packet.Id });
             return;
         }
 

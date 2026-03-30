@@ -6,8 +6,7 @@ using System.Threading;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using MasterIM.SDK.Models;
-using MasterIM.SDK.Protocol;
+using MasterIM.Models;
 
 namespace MasterIM.SDK;
 
@@ -18,7 +17,7 @@ public class DMClient : IDisposable
     private string? _userId;
     private string? _targetUserId;
 
-    public event Action<DMMessage>? OnMessageReceived;
+    public event Action<GroupMessage>? OnMessageReceived;
     public event Action? OnTargetOnline;
     public event Action? OnTargetOffline;
     public event Action? OnConnected;
@@ -114,7 +113,7 @@ public class DMClient : IDisposable
         switch (packet.T)
         {
             case "dm_msg":
-                var msg = JsonSerializer.Deserialize<DMMessage>(packet.P?.ToString() ?? "");
+                var msg = JsonSerializer.Deserialize<GroupMessage>(packet.P?.ToString() ?? "");
                 if (msg != null) OnMessageReceived?.Invoke(msg);
                 break;
             case "dm_online":

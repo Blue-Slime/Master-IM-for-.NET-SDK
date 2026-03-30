@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace MasterIM.SDK.Models;
+namespace MasterIM.Models;
 
 public class GameObject
 {

@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 
 using System.Text.Json;
-using MasterIM.Server.Models;
+using MasterIM.Models;
 
 namespace MasterIM.Server.Storage;
 
