@@ -1,42 +1,41 @@
-# Master IM 实现
+# Master IM - 跑团即时通讯系统
+
+基于 .NET 8.0 的 WebSocket 即时通讯系统，专为 TRPG 跑团场景设计。
+
+## 特性
+
+- 🎲 **跑团专用** - 骰子投掷、角色扮演、游戏对象同步
+- ⏰ **超时空编辑** - 历史消息插入、批量移动、精准修改
+- 📁 **智能存储** - 月度分库、智能外部化、覆盖更新
+- 🔄 **实时同步** - 在线状态、正在输入、流式数据
+- 📦 **文件传输** - 解耦上传、自动消息、进度回调
 
 ## 项目结构
 
 ```
-Master.IM.SDK/          # 客户端SDK
-├── Models/
-│   ├── Message.cs
-│   ├── StreamData.cs
-│   └── UpdateNotification.cs
-├── Protocol/
-│   └── Packet.cs
-└── IMClient.cs
-
-Master.IM.Server/       # 服务端
-├── Models/
-│   ├── Message.cs
-│   └── Packet.cs
-├── Storage/
-│   └── MessageStore.cs
-├── WebSocket/
-│   ├── Connection.cs
-│   ├── ConnectionManager.cs
-│   └── IMServer.cs
-└── Program.cs
+Master.IM/
+├── Master.IM.Models/      # 共享数据模型
+├── Master.IM.Server/      # WebSocket服务端
+├── Master.IM.SDK/         # 客户端SDK
+└── Master.IM.Test/        # 单元测试
 ```
 
 ## 存储结构
 
-**按真实月分库 + 频道分表 + 时间戳主键**:
 ```
-/rooms/room_001/
-  ├── data/messages/
-  │   ├── 2026-01.db
-  │   ├── 2026-02.db
-  │   └── ...
-  └── objects/
-      ├── objects.db      # 游戏对象数据库
-      └── files/          # 大文件存储
+/rooms/{roomId}/
+├── messages/
+│   ├── 2026-01.db
+│   ├── 2026-02.db
+│   └── 2026-03.db
+├── objects/
+│   ├── objects.db
+│   ├── {objId}.obj      # 大型对象外部化
+│   └── ...
+└── files/
+    ├── files.db         # 文件元数据
+    ├── {fileId}.jpg
+    └── {fileId}.pdf
 ```
 
 **消息表结构**:
@@ -77,7 +76,7 @@ CREATE INDEX idx_objects_type ON GameObjects(Type);
 CREATE INDEX idx_objects_room ON GameObjects(RoomId);
 ```
 
-## 运行
+## 快速开始
 
 **服务端**:
 ```bash
@@ -92,20 +91,31 @@ await client.ConnectAsync("ws://localhost:5000/ws", "user1", "room1", "lobby");
 
 client.OnMessageReceived += msg => Console.WriteLine($"收到: {msg.Content}");
 
-await client.SendMessageAsync(new Message {
+// 发送消息
+await client.SendMessageAsync(new GroupMessage {
     Content = "Hello",
-    SendTime = DateTime.Now,
-    SenderId = "user1",
-    PageNumber = 0,
-    InPageSeq = 0
+    MessageType = "text"
 });
 
-// 查询最新100条
-var messages = await client.QueryPageAsync(
-    lastPage: int.MaxValue,
-    lastSeq: int.MaxValue,
-    limit: 100
-);
+// 角色扮演
+await client.SendMessageAsync(new GroupMessage {
+    Content = "我要攻击！",
+    RoleId = "character-123"
+});
+
+// 在线状态
+await client.SendPresenceAsync("online");
+
+// 正在输入
+await client.SendTypingAsync(true);
+
+// 骰子投掷
+await client.SendDiceRollAsync("1d20+5", "18", isSecret: false);
+
+// 文件上传
+var fileResult = await client.UploadFileAsync("path/to/file.jpg");
+await client.SendFileMessageAsync(fileResult);
+```
 
 // 创建游戏对象
 var character = new GameObject {
@@ -228,27 +238,53 @@ await client.BatchDeleteMessagesAsync(messages);
 
 ## 已实现功能
 
-✅ WebSocket 连接管理
-✅ 消息发送和接收
-✅ 分页查询
-✅ 流式同步(鼠标/绘制)
-✅ 心跳检测
-✅ 自动重连(客户端)
-✅ 按真实月分库(YYYY-MM)
-✅ 频道分表(库内多表)
-✅ 页号主键(page_number, in_page_seq)
-✅ 顺序查询(主键即排序)
-✅ 时间戳索引(回复导航)
-✅ 超时空编辑(插入历史消息)
-✅ 回复溯源(时间戳导航)
-✅ 离线同步(分页修改时间)
-✅ 分页管理(创建/删除空白分页)
-✅ 更新通知机制
-✅ 游戏对象存储
-✅ 单聊功能(临时通信)
-✅ 高级单聊(可选存储/漫游/编辑)
+✅ **核心通讯**
+- WebSocket 连接管理
+- 消息发送和接收
+- 分页查询
+- 心跳检测
+- 自动重连
 
-## 待实现功能
+✅ **跑团特性**
+- 骰子投掷（公开/暗骰）
+- 角色扮演消息
+- 游戏对象同步
+- 流式数据（鼠标/绘制）
 
-- 客户端本地缓存
+✅ **实时交互**
+- 在线状态（online/away/busy/offline）
+- 正在输入指示器
+- 群组提示消息
 
+✅ **超时空编辑**
+- 历史消息插入
+- 消息修改/撤回
+- 批量移动/删除
+- 分页管理
+
+✅ **文件传输**
+- 文件上传/下载
+- 进度回调
+- 自动发送文件消息
+
+✅ **智能存储**
+- 月度分库
+- GameObject智能外部化
+- 覆盖更新机制
+- 统一Models架构
+
+## 技术栈
+
+- .NET 8.0
+- WebSocket (System.Net.WebSockets)
+- SQLite (Microsoft.Data.Sqlite)
+- JSON序列化 (System.Text.Json)
+
+## 文档
+
+- [API文档](./API文档/Master_IM_Server_API文档_v1.0.md)
+- [功能对比](./功能对比_MasterIM_vs_腾讯IM.md)
+
+## License
+
+MIT
