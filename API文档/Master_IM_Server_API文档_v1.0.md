@@ -1,7 +1,7 @@
 # TRPGMaster IM Server API 文档
 
-**版本**: 1.2
-**日期**: 2026-03-31
+**版本**: 1.3
+**日期**: 2026-04-01
 
 ---
 
@@ -370,7 +370,113 @@ public class Packet
 
 ---
 
-### 1.6 分页管理
+### 1.6 房间邀请系统
+
+#### 发送房间邀请 (room_invite)
+**客户端 → 服务端**:
+```json
+{
+    "T": "room_invite",
+    "P": {
+        "TargetUserId": "user2"
+    }
+}
+```
+
+**服务端 → 目标用户**:
+```json
+{
+    "T": "group_tips",
+    "P": {
+        "Type": "room_invite",
+        "UserId": "user1",
+        "Data": {
+            "RoomId": "room123",
+            "ChannelId": "lobby"
+        }
+    }
+}
+```
+
+---
+
+#### 申请加入房间 (join_request)
+**客户端 → 服务端**:
+```json
+{
+    "T": "join_request",
+    "P": {
+        "TargetUserId": "user2"
+    }
+}
+```
+
+**服务端 → 目标用户**:
+```json
+{
+    "T": "group_tips",
+    "P": {
+        "Type": "join_request",
+        "UserId": "user1",
+        "Data": {
+            "RoomId": "room123",
+            "ChannelId": "lobby"
+        }
+    }
+}
+```
+
+---
+
+#### 接受邀请 (invite_accept)
+**客户端 → 服务端**:
+```json
+{
+    "T": "invite_accept",
+    "P": {
+        "InviterId": "user1"
+    }
+}
+```
+
+**服务端 → 邀请者**:
+```json
+{
+    "T": "group_tips",
+    "P": {
+        "Type": "invite_accepted",
+        "UserId": "user2"
+    }
+}
+```
+
+---
+
+#### 拒绝邀请 (invite_reject)
+**客户端 → 服务端**:
+```json
+{
+    "T": "invite_reject",
+    "P": {
+        "InviterId": "user1"
+    }
+}
+```
+
+**服务端 → 邀请者**:
+```json
+{
+    "T": "group_tips",
+    "P": {
+        "Type": "invite_rejected",
+        "UserId": "user2"
+    }
+}
+```
+
+---
+
+### 1.7 分页管理
 
 #### 创建空白分页 (crt)
 **客户端 → 服务端**:
@@ -828,10 +934,16 @@ ws://server:port/dm_advanced?userId={userId}&targetUserId={targetUserId}&enableS
 
 ---
 
-**文档版本**: 1.2
-**最后更新**: 2026-03-31
+**文档版本**: 1.3
+**最后更新**: 2026-04-01
 
 ## 更新日志
+
+### v1.3 (2026-04-01)
+- 添加连接状态回调（OnReconnecting/OnReconnected/OnConnectionError）
+- 实现自动重连机制（所有客户端）
+- 添加房间邀请系统（发送邀请/申请加入/接受/拒绝）
+- 添加GetUserConnection方法支持点对点通知
 
 ### v1.2 (2026-03-31)
 - 添加在线状态功能 (presence)

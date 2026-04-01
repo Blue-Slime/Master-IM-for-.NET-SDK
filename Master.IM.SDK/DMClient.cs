@@ -16,32 +16,67 @@ public class DMClient : IDisposable
     private CancellationTokenSource? _cts;
     private string? _userId;
     private string? _targetUserId;
+    private string? _url;
 
     public event Action<GroupMessage>? OnMessageReceived;
     public event Action? OnTargetOnline;
     public event Action? OnTargetOffline;
     public event Action? OnConnected;
     public event Action? OnDisconnected;
+    public event Action<int>? OnReconnecting;
+    public event Action? OnReconnected;
+    public event Action<string>? OnConnectionError;
 
     public async Task ConnectAsync(string url, string userId, string targetUserId)
     {
+        _url = url;
         _userId = userId;
         _targetUserId = targetUserId;
 
-        _ws = new ClientWebSocket();
-        _cts = new CancellationTokenSource();
+        await ReconnectAsync();
+        _ = AutoReconnect();
+    }
 
-        var uri = new Uri($"{url}?userId={userId}&targetUserId={targetUserId}");
-
+    private async Task ReconnectAsync()
+    {
         try
         {
+            _ws?.Dispose();
+            _ws = new ClientWebSocket();
+            _cts = new CancellationTokenSource();
+
+            var uri = new Uri($"{_url}?userId={_userId}&targetUserId={_targetUserId}");
             await _ws.ConnectAsync(uri, _cts.Token);
+
             OnConnected?.Invoke();
             _ = ReceiveLoop();
         }
-        catch
+        catch (Exception ex)
         {
-            throw new Exception("Target user is offline");
+            OnConnectionError?.Invoke(ex.Message);
+            throw;
+        }
+    }
+
+    private async Task AutoReconnect()
+    {
+        int retryCount = 0;
+        while (_cts?.IsCancellationRequested == false)
+        {
+            await Task.Delay(5000);
+            if (_ws?.State != System.Net.WebSockets.WebSocketState.Open)
+            {
+                OnDisconnected?.Invoke();
+                retryCount++;
+                OnReconnecting?.Invoke(retryCount);
+                try
+                {
+                    await ReconnectAsync();
+                    OnReconnected?.Invoke();
+                    retryCount = 0;
+                }
+                catch { }
+            }
         }
     }
 

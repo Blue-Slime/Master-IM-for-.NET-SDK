@@ -22,6 +22,12 @@ public class ConnectionManager
         _connections.TryRemove(userId, out _);
     }
 
+    public Connection? GetUserConnection(string userId)
+    {
+        _connections.TryGetValue(userId, out var conn);
+        return conn;
+    }
+
     public List<Connection> GetChannelConnections(string roomId, string channelId)
     {
         return _connections.Values.Where(c => c.RoomId == roomId && c.ChannelId == channelId).ToList();

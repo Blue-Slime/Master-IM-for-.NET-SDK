@@ -18,4 +18,8 @@ public class GroupMessage
 
     // 消息类型
     public string MessageType { get; set; } = "text";  // text, image, audio, video, file, custom
+
+    // @提及
+    public List<string> MentionedUserIds { get; set; } = new();
+    public bool MentionAll { get; set; } = false;
 }

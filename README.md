@@ -9,6 +9,10 @@
 - 📁 **智能存储** - 月度分库、智能外部化、覆盖更新
 - 🔄 **实时同步** - 在线状态、正在输入、流式数据
 - 📦 **文件传输** - 解耦上传、自动消息、进度回调
+- 👥 **房间管理** - 创建/删除房间、成员管理、权限控制
+- 🔍 **消息搜索** - 关键词搜索、@提及通知
+- ✅ **已读回执** - 消息已读状态同步
+- 🤝 **好友邀请** - Steam好友邀请、加入请求
 
 ## 项目结构
 
@@ -111,6 +115,30 @@ await client.SendTypingAsync(true);
 
 // 骰子投掷
 await client.SendDiceRollAsync("1d20+5", "18", isSecret: false);
+
+// 房间邀请
+await client.SendRoomInviteAsync("targetUserId");
+await client.AcceptInviteAsync("inviterId");
+
+// 房间管理
+await client.CreateRoomAsync(new Room { RoomId = "room1", RoomName = "我的房间" });
+var rooms = await client.GetRoomsAsync();
+await client.UpdateRoomAsync(room);
+await client.DeleteRoomAsync("room1");
+
+// 成员管理
+var members = await client.GetRoomMembersAsync();
+await client.UpdateMemberAsync(member);
+await client.BanMemberAsync("userId");
+
+// 消息搜索
+var results = await client.SearchMessagesAsync("关键词", limit: 50);
+
+// 已读回执
+await client.SendReadReceiptAsync(pageNumber: 5, inPageSeq: 10);
+
+// @提及通知
+client.OnMentioned += msg => Console.WriteLine($"你被@了: {msg.Content}");
 
 // 文件上传
 var fileResult = await client.UploadFileAsync("path/to/file.jpg");
@@ -243,7 +271,8 @@ await client.BatchDeleteMessagesAsync(messages);
 - 消息发送和接收
 - 分页查询
 - 心跳检测
-- 自动重连
+- 自动重连（带重试计数）
+- 连接状态回调
 
 ✅ **跑团特性**
 - 骰子投掷（公开/暗骰）
@@ -272,6 +301,25 @@ await client.BatchDeleteMessagesAsync(messages);
 - GameObject智能外部化
 - 覆盖更新机制
 - 统一Models架构
+
+✅ **房间管理**
+- 创建/删除/更新房间
+- 房间列表查询
+- 房间设置（名称/描述/密码）
+- 数据导出功能
+
+✅ **成员管理**
+- 获取成员列表
+- 更新成员信息
+- 踢出/禁言功能
+- 角色权限管理
+
+✅ **社交功能**
+- 房间邀请系统
+- 加入请求处理
+- @提及通知
+- 消息搜索
+- 消息已读回执
 
 ## 技术栈
 

@@ -13,6 +13,8 @@ builder.Services.AddSingleton(new ObjectStore("./data"));
 builder.Services.AddSingleton(new DMAdvancedStore("./data"));
 builder.Services.AddSingleton(new DMCleanupService("./data"));
 builder.Services.AddSingleton(new FileService("./data"));
+builder.Services.AddSingleton(new RoomMemberStore("./data"));
+builder.Services.AddSingleton(new RoomStore("./data"));
 builder.Services.AddSingleton<IMServer>();
 builder.Services.AddSingleton<DMServer>();
 builder.Services.AddSingleton<DMAdvancedServer>();

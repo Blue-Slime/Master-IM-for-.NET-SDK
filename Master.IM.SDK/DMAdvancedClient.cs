@@ -17,24 +17,70 @@ public class DMAdvancedClient : IDisposable
     private CancellationTokenSource? _cts;
     private string? _userId;
     private string? _targetUserId;
+    private string? _url;
+    private bool _enableStorage;
+    private int _retentionDays;
 
     public event Action<GroupMessage>? OnMessageReceived;
     public event Action? OnConnected;
     public event Action? OnDisconnected;
+    public event Action<int>? OnReconnecting;
+    public event Action? OnReconnected;
+    public event Action<string>? OnConnectionError;
 
     public async Task ConnectAsync(string url, string userId, string targetUserId, bool enableStorage = true, int retentionDays = -1)
     {
+        _url = url;
         _userId = userId;
         _targetUserId = targetUserId;
+        _enableStorage = enableStorage;
+        _retentionDays = retentionDays;
 
-        _ws = new ClientWebSocket();
-        _cts = new CancellationTokenSource();
+        await ReconnectAsync();
+        _ = AutoReconnect();
+    }
 
-        var uri = new Uri($"{url}?userId={userId}&targetUserId={targetUserId}&enableStorage={enableStorage}&retentionDays={retentionDays}");
-        await _ws.ConnectAsync(uri, _cts.Token);
+    private async Task ReconnectAsync()
+    {
+        try
+        {
+            _ws?.Dispose();
+            _ws = new ClientWebSocket();
+            _cts = new CancellationTokenSource();
 
-        OnConnected?.Invoke();
-        _ = ReceiveLoop();
+            var uri = new Uri($"{_url}?userId={_userId}&targetUserId={_targetUserId}&enableStorage={_enableStorage}&retentionDays={_retentionDays}");
+            await _ws.ConnectAsync(uri, _cts.Token);
+
+            OnConnected?.Invoke();
+            _ = ReceiveLoop();
+        }
+        catch (Exception ex)
+        {
+            OnConnectionError?.Invoke(ex.Message);
+            throw;
+        }
+    }
+
+    private async Task AutoReconnect()
+    {
+        int retryCount = 0;
+        while (_cts?.IsCancellationRequested == false)
+        {
+            await Task.Delay(5000);
+            if (_ws?.State != System.Net.WebSockets.WebSocketState.Open)
+            {
+                OnDisconnected?.Invoke();
+                retryCount++;
+                OnReconnecting?.Invoke(retryCount);
+                try
+                {
+                    await ReconnectAsync();
+                    OnReconnected?.Invoke();
+                    retryCount = 0;
+                }
+                catch { }
+            }
+        }
     }
 
     public async Task SendMessageAsync(GroupMessage msg)

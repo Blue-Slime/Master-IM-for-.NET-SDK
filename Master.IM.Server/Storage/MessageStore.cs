@@ -316,5 +316,39 @@ public class MessageStore
             )";
         cmd.ExecuteNonQuery();
     }
+
+    public async Task<List<GroupMessage>> SearchMessagesAsync(string roomId, string channelId, string keyword, int limit = 50)
+    {
+        var dbPath = GetDbPath(roomId, DateTime.Now);
+        if (!File.Exists(dbPath)) return new();
+
+        using var conn = new SqliteConnection($"Data Source={dbPath}");
+        await conn.OpenAsync();
+
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"
+            SELECT * FROM channel_{channelId}
+            WHERE content LIKE @keyword
+            ORDER BY page_number DESC, in_page_seq DESC
+            LIMIT @limit";
+        cmd.Parameters.AddWithValue("@keyword", $"%{keyword}%");
+        cmd.Parameters.AddWithValue("@limit", limit);
+
+        var messages = new List<GroupMessage>();
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            messages.Add(new GroupMessage
+            {
+                PageNumber = reader.GetInt32(0),
+                InPageSeq = reader.GetInt32(1),
+                SendTime = new DateTime(reader.GetInt64(2)),
+                SenderId = reader.GetString(3),
+                Content = reader.GetString(4)
+            });
+        }
+
+        return messages;
+    }
 }
 
