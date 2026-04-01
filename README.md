@@ -13,6 +13,8 @@
 - 🔍 **消息搜索** - 关键词搜索、@提及通知
 - ✅ **已读回执** - 消息已读状态同步
 - 🤝 **好友邀请** - Steam好友邀请、加入请求
+- 🔐 **Steam认证** - 官方API验证，无需密码
+- 🌐 **多服务器** - 分布式架构，负载均衡
 
 ## 项目结构
 
@@ -130,6 +132,25 @@ CREATE INDEX idx_objects_room ON GameObjects(RoomId);
 ## 快速开始
 
 **服务端**:
+```bash
+cd Master.IM.Server
+dotnet run
+```
+
+**Steam认证（客户端）**:
+```csharp
+// 1. 获取Steam票据
+var ticket = SteamUser.GetAuthTicketForWebApi("your-identity");
+
+// 2. 发送到auth服务器验证
+var authService = new SteamAuthService("YOUR_API_KEY");
+var result = await authService.ValidateTicketAsync(ticket);
+
+if (result.Success)
+{
+    Console.WriteLine($"登录成功: {result.SteamId}");
+}
+```
 ```bash
 cd Master.IM.Server
 dotnet run
