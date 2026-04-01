@@ -69,11 +69,13 @@ CREATE INDEX idx_membership ON UserAccounts(MembershipTier);
 
 ## 登录流程设计
 
-**第一步：账号登录**
-1. 客户端连接任意服务器，获取server_configs.db服务器列表
-2. 从列表中找到ServerType='auth'的登录专用服务器
-3. 连接登录服务器，提交账号密码到users.db进行验证
-4. 验证成功后获取用户信息和会员等级
+**第一步：账号登录（Steam认证）**
+1. 游戏启动时调用Steam API `GetAuthTicketForWebApi`获取认证票据
+2. 客户端连接任意服务器，获取server_configs.db服务器列表
+3. 从列表中找到ServerType='auth'的登录专用服务器
+4. 发送Steam票据到登录服务器
+5. 服务器调用Steam Web API验证票据，获取SteamID
+6. 在users.db中验证或创建账户，返回用户信息和会员等级
 
 **第二步：房间登入**
 1. 客户端查询本地缓存的room_locations.db（房间-服务器对照表）
@@ -84,7 +86,8 @@ CREATE INDEX idx_membership ON UserAccounts(MembershipTier);
 4. 如果房间不在本服务器或验证失败：
    - 回调客户端，要求进行全服务器扫描
    - 遍历server_configs.db中所有ServerType='storage'或'hybrid'的服务器
-   - 找到房间新位置后更新本地缓存
+   - 找到房间新位置后更新本地缓存，尝试重复第二步。
+   - 全局找不到，等待超时，则返回该房间不存在
 
 **消息表结构**:
 ```sql
