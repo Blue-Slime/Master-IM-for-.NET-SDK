@@ -38,7 +38,7 @@ public class UserAccountStore
                 UserName TEXT NOT NULL,
                 Email TEXT,
                 AvatarUrl TEXT,
-                MembershipTier TEXT NOT NULL DEFAULT 'free',
+                MembershipTier INTEGER NOT NULL DEFAULT 0,
                 SubscriptionStartDate TEXT,
                 SubscriptionEndDate TEXT,
                 SubscriptionStatus TEXT NOT NULL DEFAULT 'free',
@@ -138,7 +138,7 @@ public class UserAccountStore
     /// <summary>
     /// 更新会员等级
     /// </summary>
-    public async Task UpdateMembershipAsync(string userId, string tier, DateTime? startDate, DateTime? endDate, string status)
+    public async Task UpdateMembershipAsync(string userId, int tier, DateTime? startDate, DateTime? endDate, string status)
     {
         var dbPath = GetDbPath();
         if (!File.Exists(dbPath)) return;
@@ -196,7 +196,7 @@ public class UserAccountStore
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT * FROM UserAccounts WHERE MembershipTier != 'free'";
+        cmd.CommandText = "SELECT * FROM UserAccounts WHERE MembershipTier > 0";
 
         var users = new List<UserAccount>();
         using var reader = await cmd.ExecuteReaderAsync();
@@ -217,7 +217,7 @@ public class UserAccountStore
             UserName = reader.GetString(2),
             Email = reader.GetString(3),
             AvatarUrl = reader.GetString(4),
-            MembershipTier = reader.GetString(5),
+            MembershipTier = reader.GetInt32(5),
             SubscriptionStartDate = string.IsNullOrEmpty(reader.GetString(6)) ? null : DateTime.Parse(reader.GetString(6)),
             SubscriptionEndDate = string.IsNullOrEmpty(reader.GetString(7)) ? null : DateTime.Parse(reader.GetString(7)),
             SubscriptionStatus = reader.GetString(8),

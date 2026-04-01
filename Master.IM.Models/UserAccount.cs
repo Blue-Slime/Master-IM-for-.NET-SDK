@@ -14,9 +14,9 @@ public class UserAccount
     public string AvatarUrl { get; set; } = string.Empty;
 
     /// <summary>
-    /// 会员等级: free, plus, pro, gm
+    /// 会员等级: 0=free，1=standard, 2=plus, 3=pro, 4=god
     /// </summary>
-    public string MembershipTier { get; set; } = "free";
+    public int MembershipTier { get; set; } = 0;
 
     /// <summary>
     /// 订阅开始日期

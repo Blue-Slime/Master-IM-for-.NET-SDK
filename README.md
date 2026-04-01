@@ -53,7 +53,7 @@ CREATE TABLE UserAccounts (
     UserName TEXT NOT NULL,
     Email TEXT,
     AvatarUrl TEXT,
-    MembershipTier TEXT NOT NULL DEFAULT 'free',
+    MembershipTier INTEGER NOT NULL DEFAULT 0,  -- 0=free, 1=standard, 2=plus, 3=pro, 4=god
     SubscriptionStartDate TEXT,
     SubscriptionEndDate TEXT,
     SubscriptionStatus TEXT NOT NULL DEFAULT 'free',
