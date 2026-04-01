@@ -29,6 +29,7 @@ Master.IM/
 ```
 /data/
 ├── users.db                 # 用户中心库（全局）
+├── room_locations.db        # 本机房间列表（定位房间位置）
 └── /rooms/{roomId}/
     ├── messages/
     │   ├── 2026-01.db
