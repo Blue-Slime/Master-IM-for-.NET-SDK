@@ -27,19 +27,42 @@ Master.IM/
 ## 存储结构
 
 ```
-/rooms/{roomId}/
-├── messages/
-│   ├── 2026-01.db
-│   ├── 2026-02.db
-│   └── 2026-03.db
-├── objects/
-│   ├── objects.db
-│   ├── {objId}.obj      # 大型对象外部化
-│   └── ...
-└── files/
-    ├── files.db         # 文件元数据
-    ├── {fileId}.jpg
-    └── {fileId}.pdf
+/data/
+├── users.db                 # 用户中心库（全局）
+└── /rooms/{roomId}/
+    ├── messages/
+    │   ├── 2026-01.db
+    │   ├── 2026-02.db
+    │   └── 2026-03.db
+    ├── objects/
+    │   ├── objects.db
+    │   ├── {objId}.obj      # 大型对象外部化
+    │   └── ...
+    ├── files/
+    │   ├── files.db         # 文件元数据
+    │   ├── {fileId}.jpg
+    │   └── {fileId}.pdf
+    └── members.db           # 房间成员信息
+```
+
+**用户中心表结构**:
+```sql
+CREATE TABLE UserAccounts (
+    UserId TEXT PRIMARY KEY,
+    SteamId TEXT NOT NULL UNIQUE,
+    UserName TEXT NOT NULL,
+    Email TEXT,
+    AvatarUrl TEXT,
+    MembershipTier TEXT NOT NULL DEFAULT 'free',
+    SubscriptionStartDate TEXT,
+    SubscriptionEndDate TEXT,
+    SubscriptionStatus TEXT NOT NULL DEFAULT 'free',
+    CreatedAt TEXT NOT NULL,
+    LastLoginAt TEXT NOT NULL,
+    AccountStatus TEXT NOT NULL DEFAULT 'active'
+);
+CREATE INDEX idx_steamid ON UserAccounts(SteamId);
+CREATE INDEX idx_membership ON UserAccounts(MembershipTier);
 ```
 
 **消息表结构**:
@@ -297,10 +320,11 @@ await client.BatchDeleteMessagesAsync(messages);
 - 自动发送文件消息
 
 ✅ **智能存储**
-- 月度分库
+- 消息月度分库
 - GameObject智能外部化
 - 覆盖更新机制
 - 统一Models架构
+- 用户中心库（会员管理）
 
 ✅ **房间管理**
 - 创建/删除/更新房间
